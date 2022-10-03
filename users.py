@@ -1,16 +1,13 @@
-import os, json
+# Construcción de la lista de usuarios de cobertura mínima:
+# Se buscan los usuarios con más coincidencias sobre el conjunto de proveedores
+# Aquellos con más coincidencias se agregan a la solución; los conjuntos cubiertos se eliminan de los restantes
+# Se devuelve la lista cuando ya no quedan proveedores por cubrir.
+
+import os, json, natsort as ns
 
 json_folder = './json/'
-json_result = 'providers.json'
-
 json_list = []
-users = sorted(os.listdir(json_folder))
-providers = {
-    'auth_module': {
-    },
-    'content_module': {
-    }
-}
+users = ns.natsorted(os.listdir(json_folder))
 
 for user in users:
     try:
@@ -21,27 +18,38 @@ for user in users:
     json_list.append(data)
     file.close()
 
+module_group = set()
+
 for item in json_list:
-    current_auth_provider = item['provider']['auth_module']
-    current_content_provider = item['provider']['content_module']
-    providers['auth_module'][current_auth_provider] = []
-    providers['content_module'][current_content_provider] = []
+    module_group.add(item['provider']['auth_module'])
+    module_group.add(item['provider']['content_module'])
 
+min_user_list = []
 
-i = 0
-for item in json_list:
-    current_user_file = users[i]
-    current_auth_provider = item['provider']['auth_module']
-    current_content_provider = item['provider']['content_module']
-    if (current_auth_provider == item['provider']['auth_module']):
-        providers['auth_module'][current_auth_provider].append('./' + current_user_file)
-    if (current_content_provider == item['provider']['content_module']):
-        providers['content_module'][current_content_provider].append('./' + current_user_file)
-    i += 1
+while (len(module_group) > 0):
+    i = 0
+    best_current = {
+        'user': '',
+        'auth_module': '',
+        'content_module': '',
+        'hits': 0
+    }
+    for item in json_list:
+        hits = 0
+        if item['provider']['auth_module'] in module_group:
+            hits += 1
+        if item['provider']['content_module'] in module_group:
+            hits += 1
+        if (hits > best_current['hits']):
+            best_current = {
+                'user': users[i],
+                'auth_module': item['provider']['auth_module'],
+                'content_module': item['provider']['content_module'],
+                'hits': hits
+            }
+        i += 1
+    module_group.remove(best_current['auth_module'])
+    module_group.remove(best_current['content_module'])
+    min_user_list.append(best_current['user'])
 
-with open(json_result, 'w') as file:
-    try:
-        json_str = json.dumps(providers, indent=2)
-        file.write(json_str)
-    except:
-        print('Ocurrió un error al guardar el resultado.')
+print(min_user_list)
